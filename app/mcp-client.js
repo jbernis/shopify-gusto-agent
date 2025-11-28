@@ -140,6 +140,7 @@ class MCPClient {
   async callStorefrontTool(toolName, toolArgs) {
     try {
       console.log("Calling storefront tool", toolName, toolArgs);
+      const normalizedArgs = this._normalizeToolArguments(toolArgs);
 
       const headers = {
         "Content-Type": "application/json"
@@ -150,7 +151,7 @@ class MCPClient {
         "tools/call",
         {
           name: toolName,
-          arguments: toolArgs,
+          arguments: normalizedArgs,
         },
         headers
       );
@@ -174,6 +175,7 @@ class MCPClient {
   async callCustomerTool(toolName, toolArgs) {
     try {
       console.log("Calling customer tool", toolName, toolArgs);
+      const normalizedArgs = this._normalizeToolArguments(toolArgs);
       // First try to get a token from the database for this conversation
       let accessToken = this.customerAccessToken;
 
@@ -199,7 +201,7 @@ class MCPClient {
           "tools/call",
           {
             name: toolName,
-            arguments: toolArgs,
+            arguments: normalizedArgs,
           },
           headers
         );
@@ -248,25 +250,54 @@ class MCPClient {
    * @throws {Error} If the request fails
    */
   async _makeJsonRpcRequest(endpoint, method, params, headers) {
+    const payload = {
+      jsonrpc: "2.0",
+      method: method,
+      id: 1,
+      params: params
+    };
+    const body = JSON.stringify(payload);
+
     const response = await fetch(endpoint, {
       method: "POST",
       headers: headers,
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        method: method,
-        id: 1,
-        params: params
-      }),
+      body
     });
 
     if (!response.ok) {
-      const error = await response.text();
+      const errorText = await response.text();
+      const errorPayload = {
+        endpoint,
+        method,
+        status: response.status,
+        response: errorText,
+        requestBody: body
+      };
+      console.error("MCP request failed", JSON.stringify(errorPayload, null, 2));
       const errorObj = new Error(`Request failed: ${response.status} ${error}`);
       errorObj.status = response.status;
       throw errorObj;
     }
 
-    return await response.json();
+    const jsonResponse = await response.json();
+
+    if (jsonResponse && jsonResponse.error) {
+      console.error(
+        "MCP JSON-RPC error",
+        JSON.stringify(
+          {
+            endpoint,
+            method,
+            requestBody: body,
+            responseBody: jsonResponse
+          },
+          null,
+          2
+        )
+      );
+    }
+
+    return jsonResponse;
   }
 
   /**
@@ -284,6 +315,29 @@ class MCPClient {
         input_schema: tool.inputSchema || tool.input_schema,
       };
     });
+  }
+
+  /**
+   * Ensures tool arguments are always sent as objects.
+   * @private
+   * @param {Object|string} toolArgs
+   * @returns {Object}
+   */
+  _normalizeToolArguments(toolArgs) {
+    if (!toolArgs) return {};
+    if (typeof toolArgs === "object") return toolArgs;
+
+    if (typeof toolArgs === "string") {
+      try {
+        const parsed = JSON.parse(toolArgs);
+        return typeof parsed === "object" && parsed !== null ? parsed : {};
+      } catch (error) {
+        console.warn("Failed to parse tool arguments JSON:", toolArgs, error);
+        return {};
+      }
+    }
+
+    return {};
   }
 }
 

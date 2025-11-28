@@ -6,7 +6,7 @@
 export const AppConfig = {
   // API Configuration
   api: {
-    defaultModel: 'claude-3-5-sonnet-latest',
+    defaultModel: process.env.CLAUDE_MODEL || 'claude-3-haiku-20240307',
     openaiModel: 'gpt-4o',
     maxTokens: 2000,
     defaultPromptType: 'standardAssistant',

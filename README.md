@@ -31,7 +31,7 @@ A Shopify template app that lets you embed an AI-powered chat widget on your sto
 ### Components
 This app consists of two main components:
 
-1. **Backend**: A React Router app server that handles communication with LLM providers (Claude or OpenAI), processes chat messages, and acts as an MCP Client.
+1. **Backend**: A React Router app server that handles communication with LLM providers (Claude or OpenAI) through [LangChain.js](https://js.langchain.com/), processes chat messages, and acts as an MCP Client.
 2. **Chat UI**: A Shopify theme extension that provides the customer-facing chat interface.
 
 When you start the app, it will:
@@ -48,7 +48,8 @@ For direct testing, point your test suite at the `/chat` endpoint (GET or POST f
 
 ### Tech Stack
 - **Framework**: [React Router](https://reactrouter.com/)
-- **AI**: [Claude by Anthropic](https://www.anthropic.com/claude) or [OpenAI](https://openai.com/) (configurable via `LLM_PROVIDER` environment variable)
+- **AI Orchestration**: [LangChain.js](https://js.langchain.com/) for streaming + tool calling
+- **LLM Providers**: [Claude by Anthropic](https://www.anthropic.com/claude) or [OpenAI](https://openai.com/) (configurable via `LLM_PROVIDER` environment variable)
 - **Shopify Integration**: [@shopify/shopify-app-react-router](https://www.npmjs.com/package/@shopify/shopify-app-react-router)
 - **Database**: SQLite (via Prisma) for session storage
 
@@ -57,6 +58,7 @@ This app supports both Claude and OpenAI as LLM providers. Configure your prefer
 
 - **`LLM_PROVIDER`**: Set to `'claude'` (default) or `'openai'` to select the provider
 - **`CLAUDE_API_KEY`**: Required when using Claude provider
+- **`CLAUDE_MODEL`** *(optional)*: Override the default Claude model ID LangChain should request
 - **`OPENAI_API_KEY`**: Required when using OpenAI provider
 
 The default model for OpenAI is `gpt-4o`. You can customize the model in `app/services/config.server.js`.

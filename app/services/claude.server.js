@@ -1,23 +1,28 @@
 /**
  * Claude Service
- * Manages interactions with the Claude API
+ * Manages interactions with the Claude API via LangChain
  */
-import { Anthropic } from "@anthropic-ai/sdk";
+import { ChatAnthropic } from "@langchain/anthropic";
 import AppConfig from "./config.server";
 import systemPrompts from "../prompts/prompts.json";
+import {
+  buildLangChainMessages,
+  convertAIMessageLikeToClaudeMessage,
+  createEmptyAIMessageChunk,
+  extractTextDeltaFromChunk
+} from "./langchain.server";
 
 /**
  * Creates a Claude service instance
  * @param {string} apiKey - Claude API key
  * @returns {Object} Claude service with methods for interacting with Claude API
  */
-export function createClaudeService(apiKey =  process.env.CLAUDE_API_KEY
-
-) {
-  // Initialize Claude client
-  const anthropic = new Anthropic({ 
-    apiKey: apiKey
-   //, baseURL: 'https://proxy.shopify.ai/apis/anthropic'
+export function createClaudeService(apiKey = process.env.CLAUDE_API_KEY) {
+  // Initialize Claude client via LangChain
+  const anthropic = new ChatAnthropic({
+    apiKey,
+    model: AppConfig.api.defaultModel,
+    maxTokens: AppConfig.api.maxTokens
   });
 
   /**
@@ -36,40 +41,47 @@ export function createClaudeService(apiKey =  process.env.CLAUDE_API_KEY
     messages,
     promptType = AppConfig.api.defaultPromptType,
     tools
-  }, streamHandlers) => {
-    // Get system prompt from configuration or use default
+  }, streamHandlers = {}) => {
+    // Build LangChain message array with system prompt
     const systemInstruction = getSystemPrompt(promptType);
-
-    // Create stream
-    const stream = await anthropic.messages.stream({
-      model: AppConfig.api.defaultModel,
-      max_tokens: AppConfig.api.maxTokens,
-      system: systemInstruction,
-      messages,
-      tools: tools && tools.length > 0 ? tools : undefined
-    });
-
-    // Set up event handlers
-    if (streamHandlers.onText) {
-      stream.on('text', streamHandlers.onText);
+    const lcMessages = buildLangChainMessages(messages, systemInstruction);
+    const callOptions = {};
+    if (tools && tools.length > 0) {
+      callOptions.tools = tools;
     }
 
-    if (streamHandlers.onMessage) {
-      stream.on('message', streamHandlers.onMessage);
+    const stream = await anthropic.stream(lcMessages, callOptions);
+
+    let aggregatedChunk = null;
+    let latestStopReason = null;
+
+    for await (const chunk of stream) {
+      aggregatedChunk = aggregatedChunk ? aggregatedChunk.concat(chunk) : chunk;
+
+      const textDelta = extractTextDeltaFromChunk(chunk);
+      if (textDelta) {
+        streamHandlers.onText?.(textDelta);
+        streamHandlers.onContentBlock?.({
+          type: "text",
+          text: textDelta
+        });
+      }
+
+      const chunkStop = chunk.additional_kwargs?.stop_reason;
+      if (chunkStop) {
+        latestStopReason = chunkStop;
+      }
     }
 
-    if (streamHandlers.onContentBlock) {
-      stream.on('contentBlock', streamHandlers.onContentBlock);
-    }
+    const finalChunk = aggregatedChunk ?? createEmptyAIMessageChunk();
+    const finalMessage = convertAIMessageLikeToClaudeMessage(finalChunk, latestStopReason);
 
-    // Wait for final message
-    const finalMessage = await stream.finalMessage();
+    streamHandlers.onMessage?.(finalMessage);
 
-    // Process tool use requests
-    if (streamHandlers.onToolUse && finalMessage.content) {
-      for (const content of finalMessage.content) {
-        if (content.type === "tool_use") {
-          await streamHandlers.onToolUse(content);
+    if (streamHandlers.onToolUse && Array.isArray(finalMessage.content)) {
+      for (const contentBlock of finalMessage.content) {
+        if (contentBlock.type === "tool_use") {
+          await streamHandlers.onToolUse(contentBlock);
         }
       }
     }
