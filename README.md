@@ -31,7 +31,7 @@ A Shopify template app that lets you embed an AI-powered chat widget on your sto
 ### Components
 This app consists of two main components:
 
-1. **Backend**: A React Router app server that handles communication with Claude, processes chat messages, and acts as an MCP Client.
+1. **Backend**: A React Router app server that handles communication with LLM providers (Claude or OpenAI), processes chat messages, and acts as an MCP Client.
 2. **Chat UI**: A Shopify theme extension that provides the customer-facing chat interface.
 
 When you start the app, it will:
@@ -48,15 +48,25 @@ For direct testing, point your test suite at the `/chat` endpoint (GET or POST f
 
 ### Tech Stack
 - **Framework**: [React Router](https://reactrouter.com/)
-- **AI**: [Claude by Anthropic](https://www.anthropic.com/claude)
+- **AI**: [Claude by Anthropic](https://www.anthropic.com/claude) or [OpenAI](https://openai.com/) (configurable via `LLM_PROVIDER` environment variable)
 - **Shopify Integration**: [@shopify/shopify-app-react-router](https://www.npmjs.com/package/@shopify/shopify-app-react-router)
 - **Database**: SQLite (via Prisma) for session storage
 
+### LLM Provider Configuration
+This app supports both Claude and OpenAI as LLM providers. Configure your preferred provider using environment variables:
+
+- **`LLM_PROVIDER`**: Set to `'claude'` (default) or `'openai'` to select the provider
+- **`CLAUDE_API_KEY`**: Required when using Claude provider
+- **`OPENAI_API_KEY`**: Required when using OpenAI provider
+
+The default model for OpenAI is `gpt-4o`. You can customize the model in `app/services/config.server.js`.
+
 ## Customizations
 This repo can be customized. You can:
-- Edit the prompt
+- Edit the prompt (see `app/prompts/prompts.json`)
 - Change the chat widget UI
-- Swap out the LLM
+- Switch between Claude and OpenAI LLM providers (via `LLM_PROVIDER` environment variable)
+- Configure LLM models and settings (see `app/services/config.server.js`)
 
 You can learn how from our [dev docs](https://shopify.dev/docs/apps/build/storefront-mcp).
 

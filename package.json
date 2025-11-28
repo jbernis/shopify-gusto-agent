@@ -39,7 +39,8 @@
     "react-router": "^7.9.1",
     "vite-tsconfig-paths": "^5.0.1",
     "@anthropic-ai/sdk": "^0.40.0",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "openai": "^4.0.0"
   },
   "devDependencies": {
     "@shopify/api-codegen-preset": "^1.1.1",

@@ -7,6 +7,7 @@ import { saveMessage, getConversationHistory, storeCustomerAccountUrls, getCusto
 import AppConfig from "../services/config.server";
 import { createSseStream } from "../services/streaming.server";
 import { createClaudeService } from "../services/claude.server";
+import { createOpenAIService } from "../services/openai.server";
 import { createToolService } from "../services/tool.server";
 
 
@@ -119,8 +120,11 @@ async function handleChatSession({
   promptType,
   stream
 }) {
-  // Initialize services
-  const claudeService = createClaudeService();
+  // Initialize services based on provider selection
+  const provider = AppConfig.api.provider || 'claude';
+  const llmService = provider === 'openai' 
+    ? createOpenAIService() 
+    : createClaudeService();
   const toolService = createToolService();
 
   // Initialize MCP client
@@ -180,7 +184,7 @@ async function handleChatSession({
     let finalMessage = { role: 'user', content: userMessage };
 
     while (finalMessage.stop_reason !== "end_turn") {
-      finalMessage = await claudeService.streamConversation(
+      finalMessage = await llmService.streamConversation(
         {
           messages: conversationHistory,
           promptType,
